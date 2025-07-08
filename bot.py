@@ -35,33 +35,28 @@ if "selected_menu" not in st.session_state:
 def load_file_data(filename):
     try:
         file_path = os.path.join(os.getcwd(), filename)
-        st.write(f"파일 로드 시도: {file_path}")
         with open(file_path, 'r', encoding='utf-8') as file:
             data = file.read()
-            # 파일 내용 미리보기 (최대 5줄)
-            preview = '\n'.join(data.split('\n')[:5])
-            st.write(f"파일 내용 미리보기 ({filename}):\n{preview}")
-        st.write(f"파일 로드 성공: {filename}")
         return data
     except FileNotFoundError:
-        st.error(f"파일을 찾을 수 없습니다: {filename}. 디렉토리 {os.getcwd()}에 파일이 있는지 확인하세요.")
         return None
     except UnicodeDecodeError:
-        st.error(f"파일 인코딩 오류: {filename}. UTF-8 인코딩으로 저장해 주세요.")
         return None
-    except Exception as e:
-        st.error(f"파일 로드 실패: {filename} - {str(e)}")
+    except Exception:
         return None
 
 # CSV 파싱 함수
 def parse_csv_data(csv_data, filename):
     try:
+        if not csv_data or not csv_data.strip():
+            raise ValueError("파일 내용이 비어 있습니다.")
         df = pd.read_csv(io.StringIO(csv_data), encoding='utf-8', sep=',')
-        st.write(f"CSV 파싱 성공: {filename}")
-        st.write(f"파싱된 데이터프레임 (처음 5행):\n{df.head().to_markdown()}")
         return df
+    except pd.errors.ParserError as e:
+        return None
+    except ValueError as e:
+        return None
     except Exception as e:
-        st.error(f"CSV 파싱 실패: {filename} - {str(e)}")
         return None
 
 # 단계별 분기
@@ -320,14 +315,12 @@ elif st.session_state.step == "location":
                     f"<span style='font-size:20px;'>**{region}에서 '{selected_menu_name}' 맛집 검색 결과:**</span>",
                     unsafe_allow_html=True
                 )
-                st.markdown(f"[네이버 지도에서 '{region} {selected_menu_name}' 검색](https://map.naver.com/p/search/{region}%20{selected_menu_name})")
                 st.markdown(f"[카카오맵에서 '{region} {selected_menu_name}' 검색](https://map.kakao.com/?q={region}%20{selected_menu_name})")
             else:
                 st.markdown(
                     f"<span style='font-size:20px;'>**{region} 맛집 검색 결과:**</span>",
                     unsafe_allow_html=True
                 )
-                st.markdown(f"[네이버 지도에서 '{region} 맛집' 검색](https://map.naver.com/p/search/{region}%20맛집)")
                 st.markdown(f"[카카오맵에서 '{region} 맛집' 검색](https://map.kakao.com/?q={region}%20맛집)")
             if st.button("확인 완료"):
                 st.session_state.step = "diet_tip"
