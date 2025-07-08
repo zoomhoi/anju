@@ -6,10 +6,15 @@ import pandas as pd
 import io
 
 load_dotenv()
-openai.api_key = os.getenv("OPENAI_API_KEY")
+openai_api_key = os.getenv("OPENAI_API_KEY")
 
 st.set_page_config(page_title="GPT-4o 저칼로리 안주 챗봇", page_icon="🤖")
 st.title("안주요정 🍶🧚‍♀️")
+
+# API 키 확인
+if not openai_api_key:
+    st.error("OpenAI API 키가 설정되지 않았습니다. `.env` 파일에 `OPENAI_API_KEY=your-api-key`를 추가하거나, Streamlit Cloud의 Secrets에 설정해 주세요.")
+    st.stop()
 
 # 단계별 상태 관리
 if "step" not in st.session_state:
@@ -231,7 +236,7 @@ elif st.session_state.step == "recommend":
         if drink_menu_df is not None:
             drink_recommendations = drink_menu_df[drink_menu_df["주종"] == st.session_state.drink]["추천 안주"].tolist()
         
-        client = openai.OpenAI(api_key=openai.api_key)
+        client = openai.OpenAI(api_key=openai_api_key)
         prompt = (
             f"당신은 저칼로리 안주 추천 챗봇입니다.\n"
             f"조건:\n"
