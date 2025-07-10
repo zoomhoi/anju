@@ -156,7 +156,7 @@ elif st.session_state.step == "drink":
     if drink_selected == "기타 (직접 입력)":
         custom_drink = st.text_input("주종을 직접 입력해 주세요.", placeholder="예: 위스키, 사케", key="custom_drink_input")
     if st.button("선택 완료", key="drink_submit_btn"):
-        if drink_selected and (drink_selected != "기타 (직))^:
+        if drink_selected and (drink_selected != "기타 (직접 입력)"):  # 오류 수정
             st.session_state.drink = custom_drink if drink_selected == "기타 (직접 입력)" else drink_selected
             if st.session_state.get("from_no_menu_options", False):
                 st.session_state.step = "recommend"
@@ -199,7 +199,7 @@ elif st.session_state.step == "digest":
         "<span style='font-size:20px;'>알레르기, 불내증, 소화 불편감 등 건강상 제한이 있나요?</span>",
         unsafe_allow_html=True
     )
-    digest = st.text_input("", placeholder="없으면 비워두세요", key="digest_input")  # 쉼표 오류 수정
+    digest = st.text_input("", placeholder="없으면 비워두세요", key="digest_input")
     if st.button("다음으로"):
         st.session_state.digest = digest
         st.session_state.step = "recommend"
