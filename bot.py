@@ -360,7 +360,9 @@ elif st.session_state.step == "location":
                     selected_menu_name = line.split(" - ")[0].replace(f"{st.session_state.selected_menu}. ", "").strip()
                     break
             if selected_menu_name:
-                map_url = f"https://map.kakao.com/?q={quote(region + ' ' + selected_menu_name)}"
+                # 메뉴명에서 추가 설명(예: 소고기 포함)을 제거하고 순수 메뉴명만 사용
+                menu_name_clean = selected_menu_name.split(" (")[0]
+                map_url = f"https://map.kakao.com/?q={quote(region + ' ' + menu_name_clean)}"
                 st.markdown(f'[카카오맵에서 열기]({map_url})', unsafe_allow_html=True)
             else:
                 st.warning("선택한 메뉴를 찾을 수 없습니다. 다시 선택해 주세요.")
