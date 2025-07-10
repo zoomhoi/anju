@@ -4,6 +4,7 @@ import os
 from dotenv import load_dotenv
 import pandas as pd
 import io
+import random
 
 load_dotenv()
 openai_api_key = os.getenv("OPENAI_API_KEY")
@@ -35,8 +36,10 @@ if "menu_candidates" not in st.session_state:
     st.session_state.menu_candidates = []
 if "selected_menu" not in st.session_state:
     st.session_state.selected_menu = None
+if "previous_menus" not in st.session_state:
+    st.session_state.previous_menus = []
 
-# 파일 로드 함수 (로컬 환경)
+# 파일 로드 함수
 def load_file_data(filename):
     try:
         file_path = os.path.join(os.getcwd(), filename)
@@ -57,12 +60,23 @@ def parse_csv_data(csv_data, filename):
             raise ValueError("파일 내용이 비어 있습니다.")
         df = pd.read_csv(io.StringIO(csv_data), encoding='utf-8', sep=',')
         return df
-    except pd.errors.ParserError as e:
+    except pd.errors.ParserError:
         return None
-    except ValueError as e:
+    except ValueError:
         return None
-    except Exception as e:
+    except Exception:
         return None
+
+# 주종 목록 로드 함수
+def load_drink_options():
+    drink_menu_data = load_file_data("drink_menu_complete.csv")
+    if drink_menu_data:
+        drink_menu_df = parse_csv_data(drink_menu_data, "drink_menu_complete.csv")
+        if drink_menu_df is not None and "주종" in drink_menu_df.columns:
+            drink_options = sorted(drink_menu_df["주종"].dropna().unique().tolist())
+            drink_options.append("기타 (직접 입력)")
+            return drink_options
+    return ["소주", "맥주", "양주", "레드 와인", "화이트 와인", "스파클링 와인", "막걸리", "기타 (직접 입력)"]
 
 # 단계별 분기
 if st.session_state.step == "greeting":
@@ -94,7 +108,7 @@ elif st.session_state.step == "calorie_input":
         unsafe_allow_html=True
     )
     new_limit = st.text_input(
-        "",  # 안내문은 위에서 처리
+        "",
         value=str(st.session_state.calorie_limit),
         key="new_limit_text"
     )
@@ -119,7 +133,7 @@ elif st.session_state.step == "style":
         "에라이 모르겠다! 그냥 니가 추천해줘!"
     ]
     style_selected = st.radio(
-        "",  # 안내문은 위에서 처리
+        "",
         style_options,
         key="style_radio"
     )
@@ -134,9 +148,9 @@ elif st.session_state.step == "drink":
         "<span style='font-size:20px;'>주종을 선택하세요.</span>",
         unsafe_allow_html=True
     )
-    drink_options = ["소주", "맥주", "양주", "레드 와인", "화이트 와인", "스파클링 와인", "막걸리", "기타 (직접 입력)"]
+    drink_options = load_drink_options()
     drink_selected = st.radio(
-        "",  # 안내문 삭제
+        "",
         drink_options,
         key="drink_radio"
     )
@@ -146,7 +160,10 @@ elif st.session_state.step == "drink":
     if st.button("주종 선택 완료", key="drink_submit_btn"):
         if drink_selected and (drink_selected != "기타 (직접 입력)" or custom_drink):
             st.session_state.drink = custom_drink if drink_selected == "기타 (직접 입력)" else drink_selected
-            st.session_state.step = "ingredient"
+            if st.session_state.get("from_no_menu_options", False):
+                st.session_state.step = "recommend"
+            else:
+                st.session_state.step = "ingredient"
             st.rerun()
 
 elif st.session_state.step == "ingredient":
@@ -155,14 +172,13 @@ elif st.session_state.step == "ingredient":
         unsafe_allow_html=True
     )
     ingredient = st.radio(
-        "",  # 안내문은 위에서 처리
+        "",
         ("고기", "해산물", "채소", "과일", "아무거나"),
         key="ingredient_radio"
     )
     if st.button("재료 선택 완료", key="ingredient_submit_btn"):
         if ingredient:
             st.session_state.ingredient = ingredient
-            # 재료 변경 후 바로 recommend로 이동하도록 설정
             if st.session_state.get("from_no_menu_options", False):
                 st.session_state.step = "recommend"
             else:
@@ -175,7 +191,7 @@ elif st.session_state.step == "hate":
         unsafe_allow_html=True
     )
     hate = st.text_input("", placeholder="없으면 비워두세요", key="hate_input")
-    if st.button("다음(싫어하는 재료)"):
+    if st.button("다음(건강정보)"):
         st.session_state.hate = hate
         st.session_state.step = "digest"
         st.rerun()
@@ -186,7 +202,7 @@ elif st.session_state.step == "digest":
         unsafe_allow_html=True
     )
     digest = st.text_input("", placeholder="없으면 비워두세요", key="digest_input")
-    if st.button("다음(건강정보)"):
+    if st.button("다음(안주 추천)"):
         st.session_state.digest = digest
         st.session_state.step = "recommend"
         st.rerun()
@@ -197,7 +213,7 @@ elif st.session_state.step == "calorie_input_again":
         unsafe_allow_html=True
     )
     new_limit = st.text_input(
-        "",  # 안내문은 위에서 처리
+        "",
         value=str(st.session_state.calorie_limit + 100),
         key="new_limit_text_again"
     )
@@ -212,12 +228,12 @@ elif st.session_state.step == "calorie_input_again":
 elif st.session_state.step == "recommend":
     with st.spinner("추천 메뉴를 찾는 중입니다..."):
         # 파일 로드
-        food_menu_data = load_file_data("food_menu_fixed.csv")
-        drink_menu_data = load_file_data("drink_menu.csv")
+        food_menu_data = load_file_data("food_menu_complete.csv")
+        drink_menu_data = load_file_data("drink_menu_complete.csv")
         
         # 파일 데이터 파싱
-        food_menu_df = parse_csv_data(food_menu_data, "food_menu_fixed.csv") if food_menu_data else None
-        drink_menu_df = parse_csv_data(drink_menu_data, "drink_menu.csv") if drink_menu_data else None
+        food_menu_df = parse_csv_data(food_menu_data, "food_menu_complete.csv") if food_menu_data else None
+        drink_menu_df = parse_csv_data(drink_menu_data, "drink_menu_complete.csv") if drink_menu_data else None
         
         # 메뉴 필터링
         filtered_menus = []
@@ -228,13 +244,29 @@ elif st.session_state.step == "recommend":
                 filtered_menus = food_menu_df[food_menu_df["대분류"] == st.session_state.ingredient]["음식명"].tolist()
             else:
                 filtered_menus = food_menu_df["음식명"].tolist()
-            # 싫어하는 재료/안주 제외
             if st.session_state.hate:
                 hate_list = [h.strip() for h in st.session_state.hate.split(",")]
                 filtered_menus = [menu for menu in filtered_menus if all(h not in menu for h in hate_list)]
         
+        # 주종별 안주 선택 (클래식 3개, 트렌드 1개, 실용적 1개)
         if drink_menu_df is not None:
-            drink_recommendations = drink_menu_df[drink_menu_df["주종"] == st.session_state.drink]["추천 안주"].tolist()
+            drink_pairings = drink_menu_df[drink_menu_df["주종"] == st.session_state.drink]
+            classic_pairings = drink_pairings[drink_pairings["페어링 구분"] == "클래식 조합"]["추천 안주"].tolist()
+            trend_pairings = drink_pairings[drink_pairings["페어링 구분"] == "트렌드 조합"]["추천 안주"].tolist()
+            practical_pairings = drink_pairings[drink_pairings["페어링 구분"] == "실용적 조합"]["추천 안주"].tolist()
+            
+            # 이전에 추천된 메뉴 제외
+            classic_pairings = [menu for menu in classic_pairings if menu not in st.session_state.previous_menus]
+            trend_pairings = [menu for menu in trend_pairings if menu not in st.session_state.previous_menus]
+            practical_pairings = [menu for menu in practical_pairings if menu not in st.session_state.previous_menus]
+            
+            # 무작위 선택
+            selected_classics = random.sample(classic_pairings, min(3, len(classic_pairings))) if classic_pairings else []
+            selected_trend = random.sample(trend_pairings, min(1, len(trend_pairings))) if trend_pairings else []
+            selected_practical = random.sample(practical_pairings, min(1, len(practical_pairings))) if practical_pairings else []
+            
+            # 선택된 안주 결합
+            drink_recommendations = selected_classics + selected_trend + selected_practical
         
         client = openai.OpenAI(api_key=openai_api_key)
         prompt = (
@@ -246,11 +278,13 @@ elif st.session_state.step == "recommend":
             f"- 선호 재료: {st.session_state.ingredient}\n"
             f"- 싫어하는 재료/안주: {st.session_state.hate}\n"
             f"- 건강 제한: {st.session_state.digest}\n"
-            f"다음 메뉴 목록에서 조건에 맞는 배달 가능한 저칼로리 안주 메뉴 3가지를 추천해 주세요:\n"
+            f"다음 메뉴 목록에서 조건에 맞는 배달 가능한 저칼로리 안주 메뉴 5가지를 추천해 주세요:\n"
             f"{', '.join(filtered_menus) if filtered_menus else '모든 메뉴'}\n"
-            f"주종({st.session_state.drink})에 어울리는 추천 안주: {', '.join(drink_recommendations) if drink_recommendations else '없음'}\n"
-            f"각 메뉴는 이름, 예상 칼로리, 추천 이유를 포함해 주세요. "
-            f"답변은 번호 목록으로 해주세요 (예: 1. 메뉴 이름 - 칼로리 - 추천 이유)."
+            f"주종({st.session_state.drink})에 어울리는 추천 안주 (클래식 조합 3개, 트렌드 조합 1개, 실용적 조합 1개):\n"
+            f"{', '.join(drink_recommendations) if drink_recommendations else '없음'}\n"
+            f"이전에 추천된 메뉴({', '.join(st.session_state.previous_menus) if st.session_state.previous_menus else '없음'})는 제외하고 새로운 메뉴를 추천해 주세요.\n"
+            f"각 메뉴는 이름, 예상 칼로리, 추천 이유, 페어링 구분(클래식 조합, 트렌드 조합, 실용적 조합)을 포함해 주세요. "
+            f"답변은 번호 목록으로 해주세요 (예: 1. 메뉴 이름 - 칼로리 - 추천 이유 - 페어링 구분)."
         )
         response = client.chat.completions.create(
             model="gpt-4o",
@@ -258,10 +292,12 @@ elif st.session_state.step == "recommend":
                 {"role": "system", "content": "당신은 저칼로리 안주 추천 챗봇입니다."},
                 {"role": "user", "content": prompt}
             ],
-            max_tokens=700,
+            max_tokens=1000,
             temperature=0.7,
         )
         bot_reply = response.choices[0].message.content.strip()
+        new_menus = [line.split(" - ")[0].replace(f"{i}. ", "").strip() for i in range(1, 6) for line in bot_reply.split("\n") if line.startswith(f"{i}.")]
+        st.session_state.previous_menus.extend(new_menus)
         st.session_state.menu_candidates = bot_reply
         st.session_state.step = "show_menu"
         st.rerun()
@@ -270,10 +306,10 @@ elif st.session_state.step == "show_menu":
     st.markdown("<span style='font-size:20px;'>**추천 메뉴:**</span>", unsafe_allow_html=True)
     st.markdown(st.session_state.menu_candidates)
     st.markdown("<span style='font-size:20px;'>마음에 드는 번호를 눌러주세요.</span>", unsafe_allow_html=True)
-    menu_options = ["1", "2", "3", "마음에 드는 메뉴가 없어요"]
+    menu_options = ["1", "2", "3", "4", "5", "마음에 드는 메뉴가 없어요"]
     menu_selection = st.radio("", menu_options, key="menu_selection_radio")
     if st.button("선택 완료"):
-        if menu_selection in ["1", "2", "3"]:
+        if menu_selection in ["1", "2", "3", "4", "5"]:
             st.session_state.selected_menu = menu_selection
             st.session_state.step = "location"
             st.rerun()
@@ -285,7 +321,7 @@ elif st.session_state.step == "no_menu_options":
     st.markdown("<span style='font-size:20px;'>어떤 옵션을 선택하시겠습니까?</span>", unsafe_allow_html=True)
     no_menu_choice = st.radio(
         "",
-        ["다른 안주 더보기", "칼로리 올리기", "재료 바꾸기"],
+        ["다른 안주 더보기", "칼로리 올리기", "재료 바꾸기", "주종 바꾸기"],
         key="no_menu_choice_radio"
     )
     if st.button("옵션 선택 완료"):
@@ -294,9 +330,13 @@ elif st.session_state.step == "no_menu_options":
         elif no_menu_choice == "칼로리 올리기":
             st.session_state.step = "calorie_input_again"
         elif no_menu_choice == "재료 바꾸기":
-            st.session_state.from_no_menu_options = True  # 재료 변경 플래그 설정
+            st.session_state.from_no_menu_options = True
             st.session_state.ingredient = None
             st.session_state.step = "ingredient"
+        elif no_menu_choice == "주종 바꾸기":
+            st.session_state.from_no_menu_options = True
+            st.session_state.drink = None
+            st.session_state.step = "drink"
         st.rerun()
 
 elif st.session_state.step == "location":
@@ -308,7 +348,6 @@ elif st.session_state.step == "location":
     if st.button("위치 안내"):
         if region:
             selected_menu = st.session_state.selected_menu
-            # GPT 응답에서 선택된 메뉴 이름 추출
             menu_lines = st.session_state.menu_candidates.split("\n")
             selected_menu_name = None
             for line in menu_lines:
@@ -317,23 +356,27 @@ elif st.session_state.step == "location":
                     break
             if selected_menu_name:
                 st.markdown(
-                    f"<span style='font-size:20px;'>**{region}에서 '{selected_menu_name}' 맛집 검색 결과:**</span>",
+                    f"<span style='font-size:20px;'>**{region}에서 '{selected_menu_name}' 검색 결과:**</span>",
                     unsafe_allow_html=True
                 )
                 st.markdown(f"[카카오맵에서 '{region} {selected_menu_name}' 검색](https://map.kakao.com/?q={region}%20{selected_menu_name})")
+                st.markdown(f"[배달의 민족에서 '{region} {selected_menu_name}' 검색](https://www.baemin.com/search?query={region}%20{selected_menu_name})")
+                st.markdown(f"[요기요에서 '{region} {selected_menu_name}' 검색](https://www.yogiyo.co.kr/mobile/#/{region}/{selected_menu_name})")
             else:
                 st.markdown(
                     f"<span style='font-size:20px;'>**{region} 맛집 검색 결과:**</span>",
                     unsafe_allow_html=True
                 )
                 st.markdown(f"[카카오맵에서 '{region} 맛집' 검색](https://map.kakao.com/?q={region}%20맛집)")
+                st.markdown(f"[배달의 민족에서 '{region} 맛집' 검색](https://www.baemin.com/search?query={region}%20맛집)")
+                st.markdown(f"[요기요에서 '{region} 맛집' 검색](https://www.yogiyo.co.kr/mobile/#/{region}/맛집)")
             if st.button("확인 완료"):
                 st.session_state.step = "diet_tip"
                 st.rerun()
 
 elif st.session_state.step == "diet_tip":
     st.markdown(
-        "<span style='font-size:20px;'>주문이 완료되었습니다! 건강을 위해 간헐적 단식, 조깅, 반신욕 등도 함께 실천해 보세요😊</span>",
+        "<span style='font-size:20px;'>주문이 완료되었습니다! 건강을 위해 가벼운 러닝이나 반신욕 등을 함께 실천해 보세요😊</span>",
         unsafe_allow_html=True
     )
     if st.button("처음으로"):
