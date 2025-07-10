@@ -156,7 +156,7 @@ elif st.session_state.step == "drink":
     if drink_selected == "기타 (직접 입력)":
         custom_drink = st.text_input("주종을 직접 입력해 주세요.", placeholder="예: 위스키, 사케", key="custom_drink_input")
     if st.button("선택 완료", key="drink_submit_btn"):
-        if drink_selected and (drink_selected != "기타 (직접 입력)"):  # 오류 수정
+        if drink_selected and (drink_selected != "기타 (직접 입력)"):
             st.session_state.drink = custom_drink if drink_selected == "기타 (직접 입력)" else drink_selected
             if st.session_state.get("from_no_menu_options", False):
                 st.session_state.step = "recommend"
@@ -286,8 +286,8 @@ elif st.session_state.step == "recommend":
             f"주종({st.session_state.drink})에 어울리는 추천 안주:\n"
             f"{', '.join(drink_recommendations) if drink_recommendations else '없음'}\n"
             f"이전에 추천된 메뉴({', '.join(st.session_state.previous_menus) if st.session_state.previous_menus else '없음'})는 제외하고 새로운 메뉴를 추천해 주세요.\n"
-            f"각 메뉴는 이름, 예상 칼로리(100g 기준), 추천 이유를 포함하며, 스타일 구분(클래식, 트렌드, 실용적 등)은 출력에 포함시키지 마세요.\n"
-            f"형식: {i}. {{메뉴명}} - {{칼로리}}kcal - {{추천 이유}}\n"
+            f"각 메뉴는 1부터 5까지 번호를 붙여 이름, 예상 칼로리(100g 기준), 추천 이유를 포함하며, 스타일 구분(클래식, 트렌드, 실용적 등)은 출력에 포함시키지 마세요.\n"
+            f"형식: [번호]. {{메뉴명}} - {{칼로리}}kcal - {{추천 이유}}\n"
         )
         response = client.chat.completions.create(
             model="gpt-4o",
