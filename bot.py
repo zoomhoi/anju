@@ -224,9 +224,7 @@ elif st.session_state.step == "calorie_input_again":
             st.warning("숫자만 입력해 주세요.")
 
 elif st.session_state.step == "recommend":
-    with st.spinner("추천 메뉴를 찾는 중입니다..."):
-        # GIF 추가 (예: GIPHY에서 음식 이모지 GIF)
-        st.image("https://media.giphy.com/media/l0HlRN7ndq3y3PoyA/giphy.gif", width=100)
+    with st.spinner("안주를 찾는 중입니다..."):
         # 파일 로드
         food_menu_data = load_file_data("food_menu_complete.csv")
         drink_menu_data = load_file_data("drink_menu_complete.csv")
@@ -349,32 +347,32 @@ elif st.session_state.step == "no_menu_options":
 
 elif st.session_state.step == "location":
     st.markdown(
-        "<span style='font-size:20px;'>주변 맛집 찾아드릴게요. 사용자가 자기 동네 입력하고 '위치 안내' 누르면, 카카오맵이 새 창에서 열립니다.</span>",
+        "<span style='font-size:20px;'>선택한 메뉴를 동네에서 찾아드릴게요. 동네를 입력하고 '위치 안내' 누르면 카카오맵에서 확인하세요.</span>",
         unsafe_allow_html=True
     )
     region = st.text_input("", placeholder="예: 왕십리", key="region_input")
     if st.button("위치 안내"):
-        if region:
-            selected_menu = st.session_state.selected_menu
+        if region and st.session_state.selected_menu:
             menu_lines = st.session_state.menu_candidates.split("\n")
             selected_menu_name = None
             for line in menu_lines:
-                if line.startswith(f"{selected_menu}."):
-                    selected_menu_name = line.split(" - ")[0].replace(f"{selected_menu}. ", "").strip()
+                if line.startswith(f"{st.session_state.selected_menu}."):
+                    selected_menu_name = line.split(" - ")[0].replace(f"{st.session_state.selected_menu}. ", "").strip()
                     break
             if selected_menu_name:
                 map_url = f"https://map.kakao.com/?q={quote(region + ' ' + selected_menu_name)}"
-                st.markdown(f'<a href="{map_url}" target="_blank" style="display:none;"> </a><script>window.open("{map_url}");</script>', unsafe_allow_html=True)
+                st.markdown(f'[카카오맵에서 열기]({map_url})', unsafe_allow_html=True)
             else:
-                map_url = f"https://map.kakao.com/?q={quote(region + ' 맛집')}"
-                st.markdown(f'<a href="{map_url}" target="_blank" style="display:none;"> </a><script>window.open("{map_url}");</script>', unsafe_allow_html=True)
-            if st.button("확인 완료"):
-                st.session_state.step = "diet_tip"
-                st.rerun()
+                st.warning("선택한 메뉴를 찾을 수 없습니다. 다시 선택해 주세요.")
+        elif not region:
+            st.warning("동네를 입력해 주세요.")
+        if st.button("확인 완료"):
+            st.session_state.step = "diet_tip"
+            st.rerun()
 
 elif st.session_state.step == "diet_tip":
     st.markdown(
-        "<span style='font-size:20px;'> 소중한 분들과 즐거운 시간 보내세요. 내일은 건강을 위해 가벼운 러닝이나 간헐적 단식, 반신욕 등을 실천해 보세요😊</span>",
+        "<span style='font-size:20px;'>소중한 분들과 즐거운 시간 보내세요. 내일은 건강을 위해 가벼운 러닝이나 간헐적 단식, 반신욕 등을 실천해 보세요😊</span>",
         unsafe_allow_html=True
     )
     col1, col2 = st.columns([1, 1])
