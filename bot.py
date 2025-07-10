@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 import pandas as pd
 import io
 import random
+from urllib.parse import quote
 
 load_dotenv()
 openai_api_key = os.getenv("OPENAI_API_KEY")
@@ -224,6 +225,8 @@ elif st.session_state.step == "calorie_input_again":
 
 elif st.session_state.step == "recommend":
     with st.spinner("추천 메뉴를 찾는 중입니다..."):
+        # GIF 추가 (예: GIPHY에서 음식 이모지 GIF)
+        st.image("https://media.giphy.com/media/l0HlRN7ndq3y3PoyA/giphy.gif", width=100)
         # 파일 로드
         food_menu_data = load_file_data("food_menu_complete.csv")
         drink_menu_data = load_file_data("drink_menu_complete.csv")
@@ -276,7 +279,7 @@ elif st.session_state.step == "recommend":
         prompt = (
             f"당신은 저칼로리 안주 추천 챗봇입니다.\n"
             f"조건:\n"
-            f"- 최대 칼로리: {st.session_state.calorie_limit}kcal\n"
+            f"- 최대 칼로리: {st.session_state.calorie_limit}kcal (100g 기준으로 초과하지 않는 메뉴만 추천)\n"
             f"- 안주 스타일: {st.session_state.style}\n"
             f"- 주종: {st.session_state.drink}\n"
             f"- 선호 재료: {st.session_state.ingredient}\n"
@@ -288,7 +291,7 @@ elif st.session_state.step == "recommend":
             f"{', '.join(drink_recommendations) if drink_recommendations else '없음'}\n"
             f"이전에 추천된 메뉴({', '.join(st.session_state.previous_menus) if st.session_state.previous_menus else '없음'})는 제외하고 새로운 메뉴를 추천해 주세요.\n"
             f"각 메뉴는 이름, 예상 칼로리(100g 기준), 추천 이유를 포함해 주세요. 추천 메뉴는 총 5개로, 클래식 스타일 3개, 트렌드 스타일 1개, 실용적 스타일 1개를 반영해 주세요. {prompt_addition}\n"
-            f"추가로, 각 메뉴 아래에 사용자가 '이게 왜 어울리지?'라고 질문할 수 있으니, 트렌드와 실용적 스타일에 대해 한 줄씩 자연스러운 설명을 추가해 주세요. 예: '최근 트민남들이 도전한 스타일이에요' 또는 '유명 쉐프 B가 제안한 조합이에요'처럼 창의적인 배경을 넣어 주세요.\n"
+            f"추가로, 각 메뉴 아래에 사용자가 '이게 왜 어울리지?'라고 질문할 수 있으니, 트렌드와 실용적 스타일에 대해 한 줄씩 설명을 추가해 주세요. 설명은 실제 사례, 뉴스, 기사 기반으로 구체적으로 작성해 주세요. 예: '2025년 7월 KBS 뉴스에서 소개된 조합입니다' 또는 '최근 한국 요리 트렌드 보고서에 따르면...'처럼 출처를 명시해 주세요.\n"
             f"답변은 번호 목록으로 해주세요 (예: 1. 메뉴 이름 - 칼로리(100g 기준) - 추천 이유 - [설명])."
         )
         response = client.chat.completions.create(
@@ -308,7 +311,7 @@ elif st.session_state.step == "recommend":
         st.rerun()
 
 elif st.session_state.step == "show_menu":
-    st.markdown("<span style='font-size:20px;'>**추천 메뉴:**</span>", unsafe_allow_html=True)
+    st.markdown("<span style='font-size:20px;'>**추천 메뉴 (100g 기준):**</span>", unsafe_allow_html=True)
     st.markdown(st.session_state.menu_candidates)
     st.markdown("<span style='font-size:20px;'>마음에 드는 번호를 눌러주세요.</span>", unsafe_allow_html=True)
     menu_options = ["1", "2", "3", "4", "5", "마음에 드는 메뉴가 없어요"]
@@ -360,18 +363,18 @@ elif st.session_state.step == "location":
                     selected_menu_name = line.split(" - ")[0].replace(f"{selected_menu}. ", "").strip()
                     break
             if selected_menu_name:
-                map_url = f"https://map.kakao.com/?q={region}%20{selected_menu_name}"
-                st.markdown(f'[카카오맵에서 열기]({map_url})', unsafe_allow_html=True)
+                map_url = f"https://map.kakao.com/?q={quote(region + ' ' + selected_menu_name)}"
+                st.markdown(f'<a href="{map_url}" target="_blank" style="display:none;"> </a><script>window.open("{map_url}");</script>', unsafe_allow_html=True)
             else:
-                map_url = f"https://map.kakao.com/?q={region}%20맛집"
-                st.markdown(f'[카카오맵에서 열기]({map_url})', unsafe_allow_html=True)
+                map_url = f"https://map.kakao.com/?q={quote(region + ' 맛집')}"
+                st.markdown(f'<a href="{map_url}" target="_blank" style="display:none;"> </a><script>window.open("{map_url}");</script>', unsafe_allow_html=True)
             if st.button("확인 완료"):
                 st.session_state.step = "diet_tip"
                 st.rerun()
 
 elif st.session_state.step == "diet_tip":
     st.markdown(
-        "<span style='font-size:20px;'> 소중한 분들과 즐거운 술자리 되세요. 내일은 건강을 위해 가벼운 러닝이나 반신욕 등을 함께 실천해 보세요😊</span>",
+        "<span style='font-size:20px;'> 소중한 분들과 즐거운 시간 보내세요. 내일은 건강을 위해 가벼운 러닝이나 간헐적 단식, 반신욕 등을 실천해 보세요😊</span>",
         unsafe_allow_html=True
     )
     col1, col2 = st.columns([1, 1])
