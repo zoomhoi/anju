@@ -73,8 +73,8 @@ def load_drink_options():
     if drink_menu_data:
         drink_menu_df = parse_csv_data(drink_menu_data, "drink_menu_complete.csv")
         if drink_menu_df is not None and "주종" in drink_menu_df.columns:
-            return ["소주", "맥주", "레드 와인", "화이트 와인", "스파클링 와인", "막걸리", "기타 (직접 입력: 예시- 위스키, 사케, 칵테일 등)"]
-    return ["소주", "맥주", "레드 와인", "화이트 와인", "스파클링 와인", "막걸리", "기타 (직접 입력: 예시- 위스키, 사케, 칵테일 등)"]
+            return ["소주", "맥주", "레드 와인", "화이트 와인", "스파클링 와인", "막걸리", "기타 (직접 입력)"]
+    return ["소주", "맥주", "레드 와인", "화이트 와인", "스파클링 와인", "막걸리", "기타 (직접 입력)"]
 
 # 단계별 분기
 if st.session_state.step == "greeting":
@@ -124,7 +124,7 @@ elif st.session_state.step == "style":
     )
     style_options = [
         "난 무조건 고단백파! (단백질 듬뿍·지방 최소)",
-        "오늘은 탄수가 땡겨요! (에너지원 든든)",
+        "오늘은 탄수가 땡겨요! (에너지원 듬뿍)",
         "지방 좀 넣어줄 때가 됐어! (고소한 맛)",
         "맵고짜고단거!(스트레스 격파!)",
         "에라이 모르겠다! 그냥 니가 추천해줘!"
@@ -134,7 +134,7 @@ elif st.session_state.step == "style":
         style_options,
         key="style_radio"
     )
-    if st.button("모두 선택 완료", key="style_submit_btn"):
+    if st.button("선택 완료", key="style_submit_btn"):
         if style_selected:
             st.session_state.style = style_selected
             st.session_state.step = "drink"
@@ -152,11 +152,11 @@ elif st.session_state.step == "drink":
         key="drink_radio"
     )
     custom_drink = ""
-    if drink_selected == "기타 (직접 입력: 예시- 위스키, 사케, 칵테일 등)":
-        custom_drink = st.text_input("주종을 직접 입력해 주세요.", key="custom_drink_input")
-    if st.button("모두 선택 완료", key="drink_submit_btn"):
-        if drink_selected and (drink_selected != "기타 (직접 입력: 예시- 위스키, 사케, 칵테일 등)" or custom_drink):
-            st.session_state.drink = custom_drink if drink_selected == "기타 (직접 입력: 예시- 위스키, 사케, 칵테일 등)" else drink_selected
+    if drink_selected == "기타 (직접 입력)":
+        custom_drink = st.text_input("주종을 직접 입력해 주세요.", placeholder="예: 위스키, 사케", key="custom_drink_input")
+    if st.button("선택 완료", key="drink_submit_btn"):
+        if drink_selected and (drink_selected != "기타 (직접 입력)" or custom_drink):
+            st.session_state.drink = custom_drink if drink_selected == "기타 (직접 입력)" else drink_selected
             if st.session_state.get("from_no_menu_options", False):
                 st.session_state.step = "recommend"
             else:
@@ -173,7 +173,7 @@ elif st.session_state.step == "ingredient":
         ("고기", "해산물", "채소", "과일", "아무거나"),
         key="ingredient_radio"
     )
-    if st.button("모두 선택 완료", key="ingredient_submit_btn"):
+    if st.button("선택 완료", key="ingredient_submit_btn"):
         if ingredient:
             st.session_state.ingredient = ingredient
             if st.session_state.get("from_no_menu_options", False):
@@ -188,7 +188,7 @@ elif st.session_state.step == "hate":
         unsafe_allow_html=True
     )
     hate = st.text_input("", placeholder="없으면 비워두세요", key="hate_input")
-    if st.button("모두 선택 완료"):
+    if st.button("다음"):
         st.session_state.hate = hate
         st.session_state.step = "digest"
         st.rerun()
@@ -199,7 +199,7 @@ elif st.session_state.step == "digest":
         unsafe_allow_html=True
     )
     digest = st.text_input("", placeholder="없으면 비워두세요", key="digest_input")
-    if st.button("모두 선택 완료"):
+    if st.button("다음"):
         st.session_state.digest = digest
         st.session_state.step = "recommend"
         st.rerun()
@@ -257,10 +257,17 @@ elif st.session_state.step == "recommend":
             trend_pairings = [menu for menu in trend_pairings if menu not in st.session_state.previous_menus]
             practical_pairings = [menu for menu in practical_pairings if menu not in st.session_state.previous_menus]
             
-            # 무작위 선택
+            # 무작위 선택 (클래식 3개 보장 시 데이터 부족 시 GPT에 보완 요청)
             selected_classics = random.sample(classic_pairings, min(3, len(classic_pairings))) if classic_pairings else []
             selected_trend = random.sample(trend_pairings, min(1, len(trend_pairings))) if trend_pairings else []
             selected_practical = random.sample(practical_pairings, min(1, len(practical_pairings))) if practical_pairings else []
+            
+            # 데이터 부족 시 GPT에 보완 요청
+            if len(selected_classics) < 3:
+                additional_classics_needed = 3 - len(selected_classics)
+                prompt_addition = f"클래식 스타일 안주 {additional_classics_needed}개를 추가로 추천해 주세요."
+            else:
+                prompt_addition = ""
             
             # 선택된 안주 결합
             drink_recommendations = selected_classics + selected_trend + selected_practical
@@ -280,9 +287,9 @@ elif st.session_state.step == "recommend":
             f"주종({st.session_state.drink})에 어울리는 추천 안주:\n"
             f"{', '.join(drink_recommendations) if drink_recommendations else '없음'}\n"
             f"이전에 추천된 메뉴({', '.join(st.session_state.previous_menus) if st.session_state.previous_menus else '없음'})는 제외하고 새로운 메뉴를 추천해 주세요.\n"
-            f"각 메뉴는 이름, 예상 칼로리, 추천 이유를 포함해 주세요. '클래식 조합'은 언급하지 말고, '트렌드 조합'과 '실용적 조합'은 각각 해당 메뉴에 붙여서 설명해 주세요.\n"
-            f"추가로, 각 메뉴 아래에 사용자가 '이게 왜 어울리지?'라고 질문할 수 있으니, 트렌드 조합과 실용적 조합에 대해 한 줄씩 설명을 추가해 주세요. 예: '이 조합은 유명 쉐프 A의 추천으로 시작되었어요' 또는 '트민남/트민녀가 도전한 새로운 트렌드예요' 같은 창의적인 배경을 넣어 주세요."
-            f"답변은 번호 목록으로 해주세요 (예: 1. 메뉴 이름 - 칼로리 - 추천 이유 - [트렌드/실용적 조합 설명])."
+            f"각 메뉴는 이름, 예상 칼로리(100g 기준), 추천 이유를 포함해 주세요. 추천 메뉴는 총 5개로, 클래식 스타일 3개, 트렌드 스타일 1개, 실용적 스타일 1개를 반영해 주세요. {prompt_addition}\n"
+            f"추가로, 각 메뉴 아래에 사용자가 '이게 왜 어울리지?'라고 질문할 수 있으니, 트렌드와 실용적 스타일에 대해 한 줄씩 자연스러운 설명을 추가해 주세요. 예: '최근 트민남들이 도전한 스타일이에요' 또는 '유명 쉐프 B가 제안한 조합이에요'처럼 창의적인 배경을 넣어 주세요.\n"
+            f"답변은 번호 목록으로 해주세요 (예: 1. 메뉴 이름 - 칼로리(100g 기준) - 추천 이유 - [설명])."
         )
         response = client.chat.completions.create(
             model="gpt-4o",
@@ -306,7 +313,7 @@ elif st.session_state.step == "show_menu":
     st.markdown("<span style='font-size:20px;'>마음에 드는 번호를 눌러주세요.</span>", unsafe_allow_html=True)
     menu_options = ["1", "2", "3", "4", "5", "마음에 드는 메뉴가 없어요"]
     menu_selection = st.radio("", menu_options, key="menu_selection_radio")
-    if st.button("모두 선택 완료"):
+    if st.button("선택 완료"):
         if menu_selection in ["1", "2", "3", "4", "5"]:
             st.session_state.selected_menu = menu_selection
             st.session_state.step = "location"
@@ -322,7 +329,7 @@ elif st.session_state.step == "no_menu_options":
         ["다른 안주 더보기", "칼로리 변경", "식재료 바꾸기", "주종 바꾸기"],
         key="no_menu_choice_radio"
     )
-    if st.button("모두 선택 완료"):
+    if st.button("선택 완료"):
         if no_menu_choice == "다른 안주 더보기":
             st.session_state.step = "recommend"
         elif no_menu_choice == "칼로리 변경":
@@ -339,7 +346,7 @@ elif st.session_state.step == "no_menu_options":
 
 elif st.session_state.step == "location":
     st.markdown(
-        "<span style='font-size:20px;'>주변 맛집 찾아드릴게요. 사용자가 자기 동네 입력하고 '위치 안내' 누르면, 카카오맵 지도가 바로 뜨게 해줘.</span>",
+        "<span style='font-size:20px;'>주변 맛집 찾아드릴게요. 사용자가 자기 동네 입력하고 '위치 안내' 누르면, 카카오맵이 새 창에서 열립니다.</span>",
         unsafe_allow_html=True
     )
     region = st.text_input("", placeholder="예: 왕십리", key="region_input")
@@ -354,17 +361,17 @@ elif st.session_state.step == "location":
                     break
             if selected_menu_name:
                 map_url = f"https://map.kakao.com/?q={region}%20{selected_menu_name}"
-                st.components.v1.iframe(map_url, height=400, scrolling=True)
+                st.markdown(f'[카카오맵에서 열기]({map_url})', unsafe_allow_html=True)
             else:
                 map_url = f"https://map.kakao.com/?q={region}%20맛집"
-                st.components.v1.iframe(map_url, height=400, scrolling=True)
+                st.markdown(f'[카카오맵에서 열기]({map_url})', unsafe_allow_html=True)
             if st.button("확인 완료"):
                 st.session_state.step = "diet_tip"
                 st.rerun()
 
 elif st.session_state.step == "diet_tip":
     st.markdown(
-        "<span style='font-size:20px;'>주문이 완료되었습니다! 건강을 위해 가벼운 러닝이나 반신욕 등을 함께 실천해 보세요😊</span>",
+        "<span style='font-size:20px;'> 소중한 분들과 즐거운 술자리 되세요. 내일은 건강을 위해 가벼운 러닝이나 반신욕 등을 함께 실천해 보세요😊</span>",
         unsafe_allow_html=True
     )
     col1, col2 = st.columns([1, 1])
