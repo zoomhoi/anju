@@ -246,6 +246,11 @@ elif st.session_state.step == "recommend":
                 hate_list = [h.strip() for h in st.session_state.hate.split(",")]
                 filtered_menus = [menu for menu in filtered_menus if all(h not in menu for h in hate_list)]
         
+        # 무작위 샘플링으로 다양성 추가
+        if filtered_menus:
+            random.shuffle(filtered_menus)
+            filtered_menus = filtered_menus[:min(10, len(filtered_menus))]  # 최대 10개로 제한
+        
         # 주종별 안주 선택 (클래식 3개, 트렌드 1개, 실용적 1개)
         if drink_menu_df is not None:
             drink_pairings = drink_menu_df[drink_menu_df["주종"] == st.session_state.drink]
@@ -253,22 +258,15 @@ elif st.session_state.step == "recommend":
             trend_pairings = drink_pairings[drink_pairings["페어링 구분"] == "트렌드 조합"]["추천 안주"].tolist()
             practical_pairings = drink_pairings[drink_pairings["페어링 구분"] == "실용적 조합"]["추천 안주"].tolist()
             
-            # 이전에 추천된 메뉴 제외
+            # 이전 메뉴 제외
             classic_pairings = [menu for menu in classic_pairings if menu not in st.session_state.previous_menus]
             trend_pairings = [menu for menu in trend_pairings if menu not in st.session_state.previous_menus]
             practical_pairings = [menu for menu in practical_pairings if menu not in st.session_state.previous_menus]
             
-            # 무작위 선택 (클래식 3개 보장 시 데이터 부족 시 GPT에 보완 요청)
+            # 무작위 선택
             selected_classics = random.sample(classic_pairings, min(3, len(classic_pairings))) if classic_pairings else []
             selected_trend = random.sample(trend_pairings, min(1, len(trend_pairings))) if trend_pairings else []
             selected_practical = random.sample(practical_pairings, min(1, len(practical_pairings))) if practical_pairings else []
-            
-            # 데이터 부족 시 GPT에 보완 요청
-            if len(selected_classics) < 3:
-                additional_classics_needed = 3 - len(selected_classics)
-                prompt_addition = f"클래식 스타일 안주 {additional_classics_needed}개를 추가로 추천해 주세요."
-            else:
-                prompt_addition = ""
             
             # 선택된 안주 결합
             drink_recommendations = selected_classics + selected_trend + selected_practical
@@ -283,14 +281,12 @@ elif st.session_state.step == "recommend":
             f"- 선호 재료: {st.session_state.ingredient}\n"
             f"- 싫어하는 재료/안주: {st.session_state.hate}\n"
             f"- 건강 제한: {st.session_state.digest}\n"
-            f"다음 메뉴 목록에서 조건에 맞는 배달 가능한 저칼로리 안주 메뉴 5가지를 추천해 주세요:\n"
+            f"다음 메뉴 목록에서 조건에 맞는 배달 가능한 저칼로리 안주 메뉴 5개를 추천해 주세요:\n"
             f"{', '.join(filtered_menus) if filtered_menus else '모든 메뉴'}\n"
             f"주종({st.session_state.drink})에 어울리는 추천 안주:\n"
             f"{', '.join(drink_recommendations) if drink_recommendations else '없음'}\n"
             f"이전에 추천된 메뉴({', '.join(st.session_state.previous_menus) if st.session_state.previous_menus else '없음'})는 제외하고 새로운 메뉴를 추천해 주세요.\n"
-            f"각 메뉴는 이름, 예상 칼로리(100g 기준), 추천 이유를 포함해 주세요. 추천 메뉴는 총 5개로, 클래식 스타일 3개, 트렌드 스타일 1개, 실용적 스타일 1개를 반영해 주세요. {prompt_addition}\n"
-            f"추가로, 각 메뉴 아래에 사용자가 '이게 왜 어울리지?'라고 질문할 수 있으니, 트렌드와 실용적 스타일에 대해 한 줄씩 설명을 추가해 주세요. 설명은 실제 사례, 뉴스, 기사 기반으로 구체적으로 작성해 주세요. 예: '2025년 7월 KBS 뉴스에서 소개된 조합입니다' 또는 '최근 한국 요리 트렌드 보고서에 따르면...'처럼 출처를 명시해 주세요.\n"
-            f"답변은 번호 목록으로 해주세요 (예: 1. 메뉴 이름 - 칼로리(100g 기준) - 추천 이유 - [설명])."
+            f"각 메뉴는 이름, 예상 칼로리(100g 기준), 추천 이유를 포함해 주세요. 추천 메뉴는 총 5개로, 내부적으로 클래식 스타일 3개, 트렌드 스타일 1개, 실용적 스타일 1개를 반영해 주세요.\n"
         )
         response = client.chat.completions.create(
             model="gpt-4o",
@@ -299,7 +295,7 @@ elif st.session_state.step == "recommend":
                 {"role": "user", "content": prompt}
             ],
             max_tokens=1000,
-            temperature=0.7,
+            temperature=1.0,  # 다양성을 높이기 위해 temperature 증가
         )
         bot_reply = response.choices[0].message.content.strip()
         new_menus = [line.split(" - ")[0].replace(f"{i}. ", "").strip() for i in range(1, 6) for line in bot_reply.split("\n") if line.startswith(f"{i}.")]
@@ -347,7 +343,7 @@ elif st.session_state.step == "no_menu_options":
 
 elif st.session_state.step == "location":
     st.markdown(
-        "<span style='font-size:20px;'>선택한 메뉴를 동네에서 찾아드릴게요. 동네를 입력하고 '위치 안내' 누르면 카카오맵에서 확인하세요.</span>",
+        "<span style='font-size:20px;'>주변 맛집 찾아드릴게요! 배달 또는 방문할 지역을 입력하세요.</span>",
         unsafe_allow_html=True
     )
     region = st.text_input("", placeholder="예: 왕십리", key="region_input")
@@ -360,17 +356,46 @@ elif st.session_state.step == "location":
                     selected_menu_name = line.split(" - ")[0].replace(f"{st.session_state.selected_menu}. ", "").strip()
                     break
             if selected_menu_name:
-                # 메뉴명에서 추가 설명(예: 소고기 포함)을 제거하고 순수 메뉴명만 사용
                 menu_name_clean = selected_menu_name.split(" (")[0]
                 map_url = f"https://map.kakao.com/?q={quote(region + ' ' + menu_name_clean)}"
-                st.markdown(f'[카카오맵에서 열기]({map_url})', unsafe_allow_html=True)
+                st.markdown(f'[좀 더 자세히 찾아줘.. 카카오맵에서 우리 동네 {menu_name_clean} 맛집 검색하기]({map_url})', unsafe_allow_html=True)
             else:
                 st.warning("선택한 메뉴를 찾을 수 없습니다. 다시 선택해 주세요.")
         elif not region:
-            st.warning("동네를 입력해 주세요.")
-        if st.button("확인 완료"):
-            st.session_state.step = "diet_tip"
-            st.rerun()
+            st.warning("지역을 입력해 주세요.")
+    if st.button("확인 완료"):
+        st.session_state.step = "diet_tip"
+        st.write(f"Debug: Moving to step {st.session_state.step}")  # 디버깅용 로그
+        st.rerun()
+    if st.session_state.selected_menu:
+        menu_lines = st.session_state.menu_candidates.split("\n")
+        selected_menu_name = None
+        for line in menu_lines:
+            if line.startswith(f"{st.session_state.selected_menu}."):
+                selected_menu_name = line.split(" - ")[0].replace(f"{st.session_state.selected_menu}. ", "").strip()
+                break
+        if selected_menu_name:
+            if st.button(f"{selected_menu_name} (사용자가 선택한 레시피 보기)"):
+                client = openai.OpenAI(api_key=openai_api_key)
+                prompt = (
+                    f"다음 메뉴에 대한 간단한 레시피를 제공해 주세요: {selected_menu_name}\n"
+                    f"레시피는 저칼로리(100g 기준 {st.session_state.calorie_limit}kcal 미만)를 고려하여 재료와 조리법을 포함하며, 최대 5단계로 간략히 작성해 주세요.\n"
+                    f"형식: - [재료 또는 단계]"
+                )
+                response = client.chat.completions.create(
+                    model="gpt-4o",
+                    messages=[
+                        {"role": "system", "content": "당신은 요리 전문 챗봇입니다."},
+                        {"role": "user", "content": prompt}
+                    ],
+                    max_tokens=300,
+                    temperature=0.7,
+                )
+                recipe = response.choices[0].message.content.strip()
+                st.markdown(f"**{selected_menu_name} 레시피:**")
+                st.markdown(recipe)
+        else:
+            st.warning("선택한 메뉴를 찾을 수 없습니다.")
 
 elif st.session_state.step == "diet_tip":
     st.markdown(
