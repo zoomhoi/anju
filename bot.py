@@ -10,7 +10,7 @@ from urllib.parse import quote
 load_dotenv()
 openai_api_key = os.getenv("OPENAI_API_KEY")
 
-st.set_page_config(page_title="GPT-4o 저칼로리 안주 챗봇", page_icon="🤖", layout="wide")  # 글자 잘림 방지 위해 wide 레이아웃 추가
+st.set_page_config(page_title="GPT-4o 저칼로리 안주 챗봇", page_icon="🤖", layout="wide")
 st.title("안주요정 🍶🧚‍♀️")
 
 # API 키 확인
@@ -156,7 +156,7 @@ elif st.session_state.step == "drink":
     if drink_selected == "기타 (직접 입력)":
         custom_drink = st.text_input("주종을 직접 입력해 주세요.", placeholder="예: 위스키, 사케", key="custom_drink_input")
     if st.button("선택 완료", key="drink_submit_btn"):
-        if drink_selected and (drink_selected != "기타 (직접 입력)" or custom_drink):
+        if drink_selected and (drink_selected != "기타 (직))^:
             st.session_state.drink = custom_drink if drink_selected == "기타 (직접 입력)" else drink_selected
             if st.session_state.get("from_no_menu_options", False):
                 st.session_state.step = "recommend"
@@ -189,7 +189,7 @@ elif st.session_state.step == "hate":
         unsafe_allow_html=True
     )
     hate = st.text_input("", placeholder="없으면 비워두세요", key="hate_input")
-    if st.button("다음으로"):  # '다음' → '다음으로' 변경
+    if st.button("다음으로"):
         st.session_state.hate = hate
         st.session_state.step = "digest"
         st.rerun()
@@ -199,8 +199,8 @@ elif st.session_state.step == "digest":
         "<span style='font-size:20px;'>알레르기, 불내증, 소화 불편감 등 건강상 제한이 있나요?</span>",
         unsafe_allow_html=True
     )
-    digest = st.text_input','', placeholder="없으면 비워두세요", key="digest_input")
-    if st.button("다음으로"):  # '다음' → '다음으로' 변경
+    digest = st.text_input("", placeholder="없으면 비워두세요", key="digest_input")  # 쉼표 오류 수정
+    if st.button("다음으로"):
         st.session_state.digest = digest
         st.session_state.step = "recommend"
         st.rerun()
@@ -296,7 +296,7 @@ elif st.session_state.step == "recommend":
                 {"role": "user", "content": prompt}
             ],
             max_tokens=1000,
-            temperature=1.0,  # 다양성을 높이기 위해 temperature 증가
+            temperature=1.0,
         )
         bot_reply = response.choices[0].message.content.strip()
         new_menus = [line.split(" - ")[0].replace(f"{i}. ", "").strip() for i in range(1, 6) for line in bot_reply.split("\n") if line.startswith(f"{i}.")]
@@ -307,7 +307,7 @@ elif st.session_state.step == "recommend":
 
 elif st.session_state.step == "show_menu":
     st.markdown("<span style='font-size:20px;'>**추천 메뉴 (100g 기준):**</span>", unsafe_allow_html=True)
-    st.markdown("<div style='white-space: normal; word-wrap: break-word;'>" + st.session_state.menu_candidates + "</div>", unsafe_allow_html=True)  # 글자 잘림 방지
+    st.markdown("<div style='white-space: normal; word-wrap: break-word;'>" + st.session_state.menu_candidates + "</div>", unsafe_allow_html=True)
     st.markdown("<span style='font-size:20px;'>마음에 드는 번호를 눌러주세요.</span>", unsafe_allow_html=True)
     menu_options = ["1", "2", "3", "4", "5", "마음에 드는 메뉴가 없어요"]
     menu_selection = st.radio("", menu_options, key="menu_selection_radio")
@@ -359,14 +359,14 @@ elif st.session_state.step == "location":
             if selected_menu_name:
                 menu_name_clean = selected_menu_name.split(" (")[0]
                 map_url = f"https://map.kakao.com/?q={quote(region + ' ' + menu_name_clean)}"
-                st.markdown(f'[카카오맵에서 {region} {menu_name_clean} 맛집 검색]({map_url})', unsafe_allow_html=True)  # 카카오맵 링크 문구 수정
+                st.markdown(f'[카카오맵에서 {region} {menu_name_clean} 맛집 검색]({map_url})', unsafe_allow_html=True)
             else:
                 st.warning("선택한 메뉴를 찾을 수 없습니다. 다시 선택해 주세요.")
         elif not region:
             st.warning("지역을 입력해 주세요.")
     if st.button("확인 완료"):
         st.session_state.step = "diet_tip"
-        st.write(f"Debug: Moving to step {st.session_state.step}")  # 디버깅용 로그
+        st.write(f"Debug: Moving to step {st.session_state.step}")
         st.rerun()
     if st.session_state.selected_menu:
         menu_lines = st.session_state.menu_candidates.split("\n")
@@ -376,7 +376,7 @@ elif st.session_state.step == "location":
                 selected_menu_name = line.split(" - ")[0].replace(f"{st.session_state.selected_menu}. ", "").strip()
                 break
         if selected_menu_name:
-            if st.button(f"{selected_menu_name} 레시피"):  # 버튼명 수정
+            if st.button(f"{selected_menu_name} 레시피"):
                 client = openai.OpenAI(api_key=openai_api_key)
                 prompt = (
                     f"다음 메뉴에 대한 간단한 레시피를 제공해 주세요: {selected_menu_name}\n"
@@ -389,11 +389,11 @@ elif st.session_state.step == "location":
                         {"role": "system", "content": "당신은 요리 전문 챗봇입니다."},
                         {"role": "user", "content": prompt}
                     ],
-                    max_tokens=500,  # 글자 잘림 방지 위해 증가
+                    max_tokens=500,
                     temperature=0.7,
                 )
                 recipe = response.choices[0].message.content.strip()
-                st.markdown(f"<div style='white-space: normal; word-wrap: break-word;'>{recipe}</div>", unsafe_allow_html=True)  # 글자 잘림 방지
+                st.markdown(f"<div style='white-space: normal; word-wrap: break-word;'>{recipe}</div>", unsafe_allow_html=True)
         else:
             st.warning("선택한 메뉴를 찾을 수 없습니다.")
 
